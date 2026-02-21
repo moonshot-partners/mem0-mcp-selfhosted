@@ -324,6 +324,48 @@ class TestBuildConfig:
         assert "ollama" in provider_names
         assert "anthropic" not in provider_names
 
+    # --- Contradiction model default cascade (8.6.x) ---
+
+    def test_contradiction_model_defaults_to_claude_for_anthropic(self):
+        """Contradiction model defaults to claude-opus-4-6 when provider is anthropic (not main LLM model)."""
+        env = {
+            "MEM0_LLM_PROVIDER": "ollama",
+            "MEM0_ENABLE_GRAPH": "true",
+            "MEM0_GRAPH_LLM_PROVIDER": "gemini_split",
+            "GOOGLE_API_KEY": "test-gemini-key",
+            # No MEM0_GRAPH_CONTRADICTION_LLM_MODEL set — should NOT inherit qwen3:14b
+        }
+        _, _, split_config = self._build_with_env(env)
+        assert split_config is not None
+        assert split_config["contradiction_model"] == "claude-opus-4-6"
+
+    def test_contradiction_model_inherits_llm_model_for_ollama(self):
+        """Contradiction model inherits main LLM model when provider is ollama."""
+        env = {
+            "MEM0_LLM_PROVIDER": "ollama",
+            "MEM0_LLM_MODEL": "qwen3:14b",
+            "MEM0_ENABLE_GRAPH": "true",
+            "MEM0_GRAPH_LLM_PROVIDER": "gemini_split",
+            "MEM0_GRAPH_CONTRADICTION_LLM_PROVIDER": "ollama",
+            "GOOGLE_API_KEY": "test-gemini-key",
+        }
+        _, _, split_config = self._build_with_env(env)
+        assert split_config is not None
+        assert split_config["contradiction_model"] == "qwen3:14b"
+
+    def test_contradiction_model_explicit_env_overrides_default(self):
+        """Explicit MEM0_GRAPH_CONTRADICTION_LLM_MODEL overrides provider-aware default."""
+        env = {
+            "MEM0_LLM_PROVIDER": "ollama",
+            "MEM0_ENABLE_GRAPH": "true",
+            "MEM0_GRAPH_LLM_PROVIDER": "gemini_split",
+            "MEM0_GRAPH_CONTRADICTION_LLM_MODEL": "claude-sonnet-4-5-20250929",
+            "GOOGLE_API_KEY": "test-gemini-key",
+        }
+        _, _, split_config = self._build_with_env(env)
+        assert split_config is not None
+        assert split_config["contradiction_model"] == "claude-sonnet-4-5-20250929"
+
     # --- URL decoupling: graph LLM (9.x) ---
 
     def test_graph_llm_url_from_dedicated_env(self):

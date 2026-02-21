@@ -228,8 +228,15 @@ def build_config() -> tuple[dict[str, Any], list[ProviderInfo], dict[str, Any] |
         contradiction_provider = os.environ.get(
             "MEM0_GRAPH_CONTRADICTION_LLM_PROVIDER", "anthropic"
         )
+        # Provider-aware default: when contradiction provider is anthropic,
+        # default to a Claude model (not the main LLM model which may be Ollama).
+        _contradiction_model_defaults = {
+            "anthropic": "claude-opus-4-6",
+            "anthropic_oat": "claude-opus-4-6",
+        }
         contradiction_model = os.environ.get(
-            "MEM0_GRAPH_CONTRADICTION_LLM_MODEL", llm_model
+            "MEM0_GRAPH_CONTRADICTION_LLM_MODEL",
+            _contradiction_model_defaults.get(contradiction_provider, llm_model),
         )
         split_config = {
             "extraction_provider": "gemini",
