@@ -6,8 +6,6 @@ Uses the `mem0ai` package directly as a library, supports both Claude's OAT toke
 
 ## Prerequisites
 
-You need these services running:
-
 | Service | Required | Purpose |
 |---------|----------|---------|
 | **Qdrant** | Yes | Vector memory storage and search |
@@ -15,7 +13,7 @@ You need these services running:
 | **Neo4j 5+** | Optional | Knowledge graph (entity relationships) |
 | **Google API Key** | Optional | Required only for `gemini`/`gemini_split` graph providers |
 
-Python >= 3.10.
+Python >= 3.10 and [uv](https://docs.astral.sh/uv/getting-started/installation/).
 
 > **Authentication:** The default setup uses Claude (Anthropic) as the LLM for fact extraction. No API key needed — the server automatically uses your Claude Code session token. For fully local setups, set `MEM0_PROVIDER=ollama`. See [Authentication](#authentication) for advanced options.
 
@@ -49,7 +47,7 @@ claude mcp add --scope user --transport stdio mem0 \
   -- uvx --from git+https://github.com/elvismdev/mem0-mcp-selfhosted.git mem0-mcp-selfhosted
 ```
 
-`MEM0_PROVIDER=ollama` cascades to both the main LLM and graph LLM providers (but not embeddings). Same infrastructure defaults apply (Qdrant on `localhost:6333`, `bge-m3` embeddings). Per-service overrides (e.g. `MEM0_LLM_URL`, `MEM0_EMBED_URL`) still work when needed.
+`MEM0_PROVIDER=ollama` cascades to both the main LLM and graph LLM providers. Same infrastructure defaults apply (Qdrant on `localhost:6333`, `bge-m3` embeddings). Per-service overrides (e.g. `MEM0_LLM_URL`, `MEM0_EMBED_URL`) still work when needed.
 
 Or add it to a single project by creating `.mcp.json` in the project root:
 
@@ -101,6 +99,8 @@ The server resolves an Anthropic token using a prioritized fallback chain:
 | 2 | `~/.claude/.credentials.json` | Auto-reads Claude Code's OAT token (zero-config) |
 | 3 | `ANTHROPIC_API_KEY` env var | Standard pay-per-use API key |
 | 4 | Disabled | Warns and disables Anthropic LLM features |
+
+**In Claude Code, priority 2 always wins** — the credentials file exists as long as you're logged in. This means `ANTHROPIC_API_KEY` (priority 3) is never reached. To override the OAT token in Claude Code, use `MEM0_ANTHROPIC_TOKEN` (priority 1). `ANTHROPIC_API_KEY` is only useful for non-Claude-Code deployments (Docker, CI, standalone).
 
 **OAT tokens** (`sk-ant-oat...`) use your Claude subscription. The server automatically detects the token type and configures the SDK accordingly. OAT tokens are automatically refreshed before expiry: the server proactively checks the token lifetime and refreshes via the Anthropic OAuth endpoint when nearing expiry (default: 30 minutes). On authentication failures, a 3-step defensive strategy kicks in — piggybacking on Claude Code's credentials file, self-refreshing via OAuth, and wait-and-retry — so long-running sessions survive token rotation seamlessly.
 
