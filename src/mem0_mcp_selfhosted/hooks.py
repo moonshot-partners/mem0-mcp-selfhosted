@@ -286,8 +286,63 @@ _HOOK_STOP_CMD = "mem0-hook-stop"
 
 
 def _has_hook(hooks_list: list, command: str) -> bool:
-    """Check if a hook with the given command already exists."""
-    return any(isinstance(h, dict) and h.get("command") == command for h in hooks_list)
+    """Check if a hook with the given command already exists.
+
+    Searches both the current nested format and the legacy flat format::
+
+        Nested:  [{"matcher": "...", "hooks": [{"type": "command", "command": "..."}]}]
+        Legacy:  [{"matcher": "...", "command": "..."}]
+    """
+    for group in hooks_list:
+        if not isinstance(group, dict):
+            continue
+        # Current nested format
+        for handler in group.get("hooks") or []:
+            if isinstance(handler, dict) and handler.get("command") == command:
+                return True
+        # Legacy flat format (pre-nested schema)
+        if group.get("command") == command:
+            return True
+    return False
+
+
+_HANDLER_KEYS = {"command", "timeout"}
+_GROUP_KEYS = {"matcher"}
+
+
+def _migrate_legacy_hooks(hooks_list: list) -> list:
+    """Convert legacy flat-format hooks to the nested format.
+
+    Flat entries (``{"command": "...", "timeout": ...}``) are converted to
+    nested format (``{"hooks": [{"type": "command", ...}]}``).  Already-nested
+    entries are kept as-is.  Non-dict entries are discarded.  Unknown keys are
+    forwarded to preserve any extra properties the user may have set.
+    """
+    migrated = []
+    for group in hooks_list:
+        if not isinstance(group, dict):
+            continue
+        if "hooks" in group:
+            # Already in nested format
+            migrated.append(group)
+        elif "command" in group:
+            # Legacy flat format — convert, forwarding unknown keys to
+            # group level so no user data is silently dropped.
+            handler: dict = {"type": "command"}
+            new_group: dict = {}
+            for k, v in group.items():
+                if k in _HANDLER_KEYS:
+                    handler[k] = v
+                elif k in _GROUP_KEYS:
+                    new_group[k] = v
+                else:
+                    new_group[k] = v
+            new_group["hooks"] = [handler]
+            migrated.append(new_group)
+        else:
+            # Unknown format — preserve as-is
+            migrated.append(group)
+    return migrated
 
 
 def install_main() -> None:
@@ -338,6 +393,12 @@ def install_main() -> None:
         settings["hooks"] = {}
 
     hooks = settings["hooks"]
+
+    # Migrate any legacy flat-format hooks to nested format
+    for event_key in ("SessionStart", "Stop"):
+        if isinstance(hooks.get(event_key), list):
+            hooks[event_key] = _migrate_legacy_hooks(hooks[event_key])
+
     installed: list[str] = []
     skipped: list[str] = []
 
@@ -349,8 +410,11 @@ def install_main() -> None:
     else:
         hooks["SessionStart"].append({
             "matcher": "startup|compact",
-            "command": _HOOK_CONTEXT_CMD,
-            "timeout": 15000,
+            "hooks": [{
+                "type": "command",
+                "command": _HOOK_CONTEXT_CMD,
+                "timeout": 15000,
+            }],
         })
         installed.append(f"SessionStart ({_HOOK_CONTEXT_CMD})")
 
@@ -361,8 +425,11 @@ def install_main() -> None:
         skipped.append(f"Stop ({_HOOK_STOP_CMD})")
     else:
         hooks["Stop"].append({
-            "command": _HOOK_STOP_CMD,
-            "timeout": 30000,
+            "hooks": [{
+                "type": "command",
+                "command": _HOOK_STOP_CMD,
+                "timeout": 30000,
+            }],
         })
         installed.append(f"Stop ({_HOOK_STOP_CMD})")
 

@@ -15,7 +15,7 @@ Uses the `mem0ai` package directly as a library, supports both Claude's OAT toke
 
 Python >= 3.10 and [uv](https://docs.astral.sh/uv/getting-started/installation/).
 
-> **Authentication:** The default setup uses Claude (Anthropic) as the LLM for fact extraction. No API key needed — the server automatically uses your Claude Code session token. For fully local setups, set `MEM0_PROVIDER=ollama`. See [Authentication](#authentication) for advanced options.
+> **Authentication:** The default setup uses Claude (Anthropic) as the LLM for fact extraction. No API key needed, the server automatically uses your Claude Code session token. For fully local setups, set `MEM0_PROVIDER=ollama`. See [Authentication](#authentication) for advanced options.
 
 ## Quick Start
 
@@ -31,9 +31,9 @@ claude mcp add --scope user --transport stdio mem0 \
 
 All defaults work out of the box: Qdrant on `localhost:6333`, Ollama embeddings on `localhost:11434` with `bge-m3` (1024 dims). Override any default via `--env` (see [Configuration](#configuration)).
 
-`uvx` automatically downloads, installs, and runs the server in an isolated environment — no manual installation needed. Claude Code launches it on demand when the MCP connection starts.
+`uvx` automatically downloads, installs, and runs the server in an isolated environment, no manual installation needed. Claude Code launches it on demand when the MCP connection starts.
 
-The server auto-reads your OAT token from `~/.claude/.credentials.json` — no manual token configuration needed.
+The server auto-reads your OAT token from `~/.claude/.credentials.json`, no manual token configuration needed.
 
 ### Fully Local (Ollama)
 
@@ -84,21 +84,21 @@ Add these rules to your project's `CLAUDE.md` (or `~/.claude/CLAUDE.md` for glob
 ```markdown
 # MCP Servers
 
-- **mem0**: Persistent memory across sessions. At the start of each session, `search_memories` for relevant context before asking the user to re-explain anything. Use `add_memory` whenever you discover project architecture, coding conventions, debugging insights, key decisions, or user preferences. Use `update_memory` when prior context changes. Save information like: "This project uses PostgreSQL with Prisma", "Tests run with pytest -v", "Auth uses JWT validated in middleware". When in doubt, save it — future sessions benefit from over-remembering.
+- **mem0**: Persistent memory across sessions. At the start of each session, `search_memories` for relevant context before asking the user to re-explain anything. Use `add_memory` whenever you discover project architecture, coding conventions, debugging insights, key decisions, or user preferences. Use `update_memory` when prior context changes. Save information like: "This project uses PostgreSQL with Prisma", "Tests run with pytest -v", "Auth uses JWT validated in middleware". When in doubt, save it, future sessions benefit from over-remembering.
 ```
 
-This gives Claude Code behavioral instructions to actively search and save memories during the session. For best results, combine with [Claude Code Hooks](#claude-code-hooks) — the CLAUDE.md rules tell Claude *how to use* memory tools mid-session, while hooks handle the *automatic* injection and saving at session boundaries.
+This gives Claude Code behavioral instructions to actively search and save memories during the session. For best results, combine with [Claude Code Hooks](#claude-code-hooks), the CLAUDE.md rules tell Claude *how to use* memory tools mid-session, while hooks handle the *automatic* injection and saving at session boundaries.
 
 ## Claude Code Hooks
 
-Session hooks automate memory at session boundaries — injecting memories on startup and saving summaries on exit. This happens automatically without manual tool calls.
+Session hooks automate memory at session boundaries, injecting memories on startup and saving summaries on exit. This happens automatically without manual tool calls.
 
 | Hook | Event | What it does |
 |------|-------|--------------|
 | `mem0-hook-context` | SessionStart (`startup`, `compact`) | Searches mem0 for project-relevant memories and injects them as `additionalContext` |
 | `mem0-hook-stop` | Stop | Reads the last ~3 user/assistant exchanges from the transcript and saves a summary to mem0 via `infer=True` |
 
-Both hooks are non-fatal — if mem0 is unreachable or any error occurs, Claude Code continues normally.
+Both hooks are non-fatal, if mem0 is unreachable or any error occurs, Claude Code continues normally.
 
 ### Install
 
@@ -114,7 +114,7 @@ Or install globally (all projects):
 mem0-install-hooks --global
 ```
 
-This adds the hook entries to `.claude/settings.json`. The installer is idempotent — running it twice won't create duplicates.
+This adds the hook entries to `.claude/settings.json`. The installer is idempotent, running it twice won't create duplicates.
 
 ### How it works
 
@@ -136,10 +136,10 @@ Hooks and CLAUDE.md are complementary layers that work best together:
 
 | Layer | Role | When |
 |-------|------|------|
-| **Hooks** | Automated data flow — injects stored memories on startup, saves session summaries on exit | Session boundaries (start/stop) |
-| **CLAUDE.md** | Behavioral instructions — tells Claude to actively search and save memories during the session | Throughout the session |
+| **Hooks** | Automated data flow, injects stored memories on startup, saves session summaries on exit | Session boundaries (start/stop) |
+| **CLAUDE.md** | Behavioral instructions, tells Claude to actively search and save memories during the session | Throughout the session |
 
-Hooks alone give you passive recall (memories appear at startup) and passive saving (summaries saved at exit). CLAUDE.md instructions add active mid-session behavior — Claude searches for relevant memories when encountering new topics, and saves important discoveries immediately rather than waiting for session end.
+Hooks alone give you passive recall (memories appear at startup) and passive saving (summaries saved at exit). CLAUDE.md instructions add active mid-session behavior, Claude searches for relevant memories when encountering new topics, and saves important discoveries immediately rather than waiting for session end.
 
 For the best experience, use both. Hooks ensure memories flow in and out automatically at session boundaries, while CLAUDE.md ensures Claude actively engages with memory tools during the session.
 
@@ -154,9 +154,9 @@ The server resolves an Anthropic token using a prioritized fallback chain:
 | 3 | `ANTHROPIC_API_KEY` env var | Standard pay-per-use API key |
 | 4 | Disabled | Warns and disables Anthropic LLM features |
 
-**In Claude Code, priority 2 always wins** — the credentials file exists as long as you're logged in. This means `ANTHROPIC_API_KEY` (priority 3) is never reached. To override the OAT token in Claude Code, use `MEM0_ANTHROPIC_TOKEN` (priority 1). `ANTHROPIC_API_KEY` is only useful for non-Claude-Code deployments (Docker, CI, standalone).
+**In Claude Code, priority 2 always wins**, the credentials file exists as long as you're logged in. This means `ANTHROPIC_API_KEY` (priority 3) is never reached. To override the OAT token in Claude Code, use `MEM0_ANTHROPIC_TOKEN` (priority 1). `ANTHROPIC_API_KEY` is only useful for non-Claude-Code deployments (Docker, CI, standalone).
 
-**OAT tokens** (`sk-ant-oat...`) use your Claude subscription. The server automatically detects the token type and configures the SDK accordingly. OAT tokens are automatically refreshed before expiry: the server proactively checks the token lifetime and refreshes via the Anthropic OAuth endpoint when nearing expiry (default: 30 minutes). On authentication failures, a 3-step defensive strategy kicks in — piggybacking on Claude Code's credentials file, self-refreshing via OAuth, and wait-and-retry — so long-running sessions survive token rotation seamlessly.
+**OAT tokens** (`sk-ant-oat...`) use your Claude subscription. The server automatically detects the token type and configures the SDK accordingly. OAT tokens are automatically refreshed before expiry: the server proactively checks the token lifetime and refreshes via the Anthropic OAuth endpoint when nearing expiry (default: 30 minutes). On authentication failures, a 3-step defensive strategy kicks in, piggybacking on Claude Code's credentials file, self-refreshing via OAuth, and wait-and-retry, so long-running sessions survive token rotation seamlessly.
 
 **API keys** (`sk-ant-api...`) use standard pay-per-use billing.
 

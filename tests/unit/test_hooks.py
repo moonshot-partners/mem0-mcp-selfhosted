@@ -526,7 +526,7 @@ class TestStopMain:
 
 class TestInstallMain:
     def test_fresh_install(self, tmp_path):
-        """Fresh install creates settings.json with both hook entries."""
+        """Fresh install creates settings.json with both hook entries in nested format."""
         project_dir = tmp_path / "myproject"
         project_dir.mkdir()
 
@@ -538,13 +538,23 @@ class TestInstallMain:
 
         settings = json.loads(settings_path.read_text())
         assert "hooks" in settings
+
+        # SessionStart: matcher group with nested hooks array
         assert len(settings["hooks"]["SessionStart"]) == 1
-        assert settings["hooks"]["SessionStart"][0]["command"] == "mem0-hook-context"
-        assert settings["hooks"]["SessionStart"][0]["matcher"] == "startup|compact"
-        assert settings["hooks"]["SessionStart"][0]["timeout"] == 15000
+        ss_group = settings["hooks"]["SessionStart"][0]
+        assert ss_group["matcher"] == "startup|compact"
+        assert len(ss_group["hooks"]) == 1
+        assert ss_group["hooks"][0]["type"] == "command"
+        assert ss_group["hooks"][0]["command"] == "mem0-hook-context"
+        assert ss_group["hooks"][0]["timeout"] == 15000
+
+        # Stop: matcher group with nested hooks array
         assert len(settings["hooks"]["Stop"]) == 1
-        assert settings["hooks"]["Stop"][0]["command"] == "mem0-hook-stop"
-        assert settings["hooks"]["Stop"][0]["timeout"] == 30000
+        stop_group = settings["hooks"]["Stop"][0]
+        assert len(stop_group["hooks"]) == 1
+        assert stop_group["hooks"][0]["type"] == "command"
+        assert stop_group["hooks"][0]["command"] == "mem0-hook-stop"
+        assert stop_group["hooks"][0]["timeout"] == 30000
 
     def test_idempotent_reinstall(self, tmp_path, capsys):
         """Running install twice doesn't create duplicate entries."""
@@ -635,8 +645,8 @@ class TestInstallMain:
 
         existing = {
             "hooks": {
-                "SessionStart": [{"command": "other-hook", "timeout": 5000}],
-                "Stop": [{"command": "another-stop-hook", "timeout": 10000}],
+                "SessionStart": [{"hooks": [{"type": "command", "command": "other-hook", "timeout": 5000}]}],
+                "Stop": [{"hooks": [{"type": "command", "command": "another-stop-hook", "timeout": 10000}]}],
             }
         }
         (claude_dir / "settings.json").write_text(json.dumps(existing))
@@ -645,10 +655,15 @@ class TestInstallMain:
             hooks.install_main()
 
         settings = json.loads((claude_dir / "settings.json").read_text())
-        # Both the original and new hooks should be present
+        # Both the original and new matcher groups should be present
         assert len(settings["hooks"]["SessionStart"]) == 2
         assert len(settings["hooks"]["Stop"]) == 2
-        commands = [h["command"] for h in settings["hooks"]["SessionStart"]]
+        # Extract commands from nested hooks arrays
+        commands = [
+            handler["command"]
+            for group in settings["hooks"]["SessionStart"]
+            for handler in group.get("hooks", [])
+        ]
         assert "other-hook" in commands
         assert "mem0-hook-context" in commands
 
@@ -694,3 +709,76 @@ class TestInstallMain:
         assert exc_info.value.code == 1
         captured = capsys.readouterr()
         assert "does not exist" in captured.err
+
+    def test_legacy_flat_format_migrated_on_reinstall(self, tmp_path, capsys):
+        """Old flat-format hooks are migrated to nested format without duplicates."""
+        project_dir = tmp_path / "proj"
+        claude_dir = project_dir / ".claude"
+        claude_dir.mkdir(parents=True)
+
+        # Old flat format from previous package version
+        existing = {
+            "hooks": {
+                "SessionStart": [{"command": "mem0-hook-context", "matcher": "startup|compact", "timeout": 15000}],
+                "Stop": [{"command": "mem0-hook-stop", "timeout": 30000}],
+            }
+        }
+        (claude_dir / "settings.json").write_text(json.dumps(existing))
+
+        with patch("sys.argv", ["mem0-install-hooks", "--project-dir", str(project_dir)]):
+            hooks.install_main()
+
+        settings = json.loads((claude_dir / "settings.json").read_text())
+
+        # Should have exactly 1 entry per event (migrated, not duplicated)
+        assert len(settings["hooks"]["SessionStart"]) == 1
+        assert len(settings["hooks"]["Stop"]) == 1
+
+        # Migrated to nested format
+        ss = settings["hooks"]["SessionStart"][0]
+        assert ss["matcher"] == "startup|compact"
+        assert ss["hooks"][0]["type"] == "command"
+        assert ss["hooks"][0]["command"] == "mem0-hook-context"
+        assert ss["hooks"][0]["timeout"] == 15000
+
+        stop = settings["hooks"]["Stop"][0]
+        assert stop["hooks"][0]["type"] == "command"
+        assert stop["hooks"][0]["command"] == "mem0-hook-stop"
+        assert stop["hooks"][0]["timeout"] == 30000
+
+        captured = capsys.readouterr()
+        assert "Already installed" in captured.out
+
+    def test_legacy_mixed_with_other_hooks_preserved(self, tmp_path):
+        """Migration preserves non-mem0 hooks alongside legacy mem0 hooks."""
+        project_dir = tmp_path / "proj"
+        claude_dir = project_dir / ".claude"
+        claude_dir.mkdir(parents=True)
+
+        existing = {
+            "hooks": {
+                "SessionStart": [
+                    {"command": "other-hook", "timeout": 5000},
+                    {"command": "mem0-hook-context", "matcher": "startup|compact", "timeout": 15000},
+                ],
+            }
+        }
+        (claude_dir / "settings.json").write_text(json.dumps(existing))
+
+        with patch("sys.argv", ["mem0-install-hooks", "--project-dir", str(project_dir)]):
+            hooks.install_main()
+
+        settings = json.loads((claude_dir / "settings.json").read_text())
+        # Both hooks migrated, no duplicates for mem0-hook-context
+        assert len(settings["hooks"]["SessionStart"]) == 2
+        commands = [
+            handler["command"]
+            for group in settings["hooks"]["SessionStart"]
+            for handler in group.get("hooks", [])
+        ]
+        assert "other-hook" in commands
+        assert "mem0-hook-context" in commands
+
+        # Stop hook auto-installed since it wasn't in the original settings
+        assert len(settings["hooks"]["Stop"]) == 1
+        assert settings["hooks"]["Stop"][0]["hooks"][0]["command"] == "mem0-hook-stop"
