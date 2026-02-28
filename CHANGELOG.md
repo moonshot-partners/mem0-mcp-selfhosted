@@ -1,6 +1,27 @@
 # CHANGELOG
 
 
+## v0.2.0 (2026-02-28)
+
+### Features
+
+- Add Claude Code session hooks for cross-session memory
+  ([`113df26`](https://github.com/elvismdev/mem0-mcp-selfhosted/commit/113df2678b05091dd0acffa2776c755d4c380644))
+
+Add SessionStart and Stop hooks that give Claude Code automatic cross-session memory without
+  requiring CLAUDE.md rules or manual tool calls.
+
+- SessionStart hook (mem0-hook-context): searches mem0 with multi-query strategy, deduplicates by
+  ID, injects formatted memories as additionalContext on startup and compact events - Stop hook
+  (mem0-hook-stop): reads last ~3 exchanges from JSONL transcript via bounded deque, saves session
+  summary to mem0 with infer=True for atomic fact extraction - CLI installer (mem0-install-hooks):
+  patches .claude/settings.json with idempotent hook entries, supports --global and --project-dir -
+  Graph force-disabled in hooks to stay within 15s/30s timeout budgets - Atomic settings.json write
+  via tempfile + os.replace - 43 unit tests covering protocol, edge cases, and error handling - 6
+  integration tests against live Qdrant + Ollama infrastructure - README updated with hooks
+  documentation, architecture diagram, and test structure
+
+
 ## v0.1.1 (2026-02-27)
 
 ### Bug Fixes
