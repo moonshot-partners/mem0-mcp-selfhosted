@@ -1,6 +1,25 @@
 # CHANGELOG
 
 
+## v0.3.1 (2026-03-12)
+
+### Bug Fixes
+
+- Add .python-version for Glama uv sync compatibility
+  ([`e4d1f09`](https://github.com/elvismdev/mem0-mcp-selfhosted/commit/e4d1f09008652a84ed1340db9372f621b8ffa785))
+
+Pin Python 3.12 so uv sync resolves the correct interpreter in Glama's Docker build environment
+  instead of picking up Debian's externally-managed Python 3.11.
+
+### Chores
+
+- Remove Dockerfile (Glama generates its own)
+  ([`33f2f1d`](https://github.com/elvismdev/mem0-mcp-selfhosted/commit/33f2f1d25bdb1e4c85617e90b21a72c48fc9c2a2))
+
+Glama's admin page generates a Dockerfile from configuration fields rather than using the repo's
+  Dockerfile. No other Docker deployment workflow exists, so the file is unused.
+
+
 ## v0.3.0 (2026-03-12)
 
 ### Features
