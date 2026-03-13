@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.3.2 (2026-03-13)
+
+### Bug Fixes
+
+- Cache-bust Glama badge URL to force fresh camo proxy fetch
+  ([`205ecf9`](https://github.com/elvismdev/mem0-mcp-selfhosted/commit/205ecf9a6d8d95f23fa0d8fa27826e3348ab0728))
+
+
 ## v0.3.1 (2026-03-12)
 
 ### Bug Fixes
